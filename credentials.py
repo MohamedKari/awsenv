@@ -139,7 +139,15 @@ def export_to_env_file(output, exports_shell):
     with open(exports_shell, "wt") as f:
         f.write("\n".join([f"export {k}=\"{v}\"" for k, v in output.items()]))
 
-def get_session(
+def encode_dict_as_base64(dict_to_encode):
+    raw_string = json.dumps(dict_to_encode, default=str)
+    raw_bytes = raw_string.encode("ascii")
+    base64_bytes = base64.b64encode(raw_bytes)
+    base64_string = bytes.decode(base64_bytes, "ascii")
+
+    return base64_string
+
+def get_boto_session(
         shortcut=None, 
         role=None, 
         user=None, 
@@ -166,7 +174,6 @@ def get_session(
         aws_session_token=credentials["AWS_SESSION_TOKEN"],
         region_name=credentials["AWS_DEFAULT_REGION"]
     )
-
 
 
 def get_credentials(
@@ -215,7 +222,7 @@ def get_credentials(
     }
 
     final_settings.update(cli)
-    print(final_settings)
+    sys.stderr.write(str(final_settings) + "\n")
 
     if final_settings["user"]:
         desired_user = config["users"][final_settings["user"]]
@@ -244,6 +251,20 @@ def get_credentials(
             )
         )
 
+    if config.get("output") \
+       and config["output"].get("variables") \
+       and config["output"]["variables"].get("AWS_TEMPORARY_CREDENTIALS_BASE64"):
+
+        dict_to_encode = {}
+        dict_to_encode["AWS_ACCESS_KEY_ID"] = output["AWS_ACCESS_KEY_ID"]
+        dict_to_encode["SECRET_ACCESS_KEY"] = output["AWS_SECRET_ACCESS_KEY"]
+
+        if "AWS_SESSION_TOKEN" in output:
+            dict_to_encode["AWS_SESSION_TOKEN"] = output["AWS_SESSION_TOKEN"]
+            dict_to_encode["AWS_EXPIRATION"] = output["AWS_EXPIRATION"]
+
+        output["AWS_TEMPORARY_CREDENTIALS_BASE64"] = encode_dict_as_base64(dict_to_encode)
+
     if exports_file:
         export_to_env_file(output, exports_file)
 
@@ -254,8 +275,13 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
 
+    # order of prcedence:
+    # - config defaults 
+    # - config shortcuts
+    # - command line arguments
+
     parser.add_argument("shortcut", nargs="?")
-    parser.add_argument("-r", "--role", default=None, help="The role shortcut of the role to assume. If account is indicated, this is interpreted as role name.")
+    parser.add_argument("-r", "--role", default=None, help="The role to assume. If no role should be assumed, indicate '.' (a dot).")
     parser.add_argument("-u", "--user", default=None)
     parser.add_argument("-a", "--account", default=None)
     parser.add_argument("-d", "--duration", default=None, type=int)
