@@ -6,10 +6,11 @@ import os
 import base64
 from datetime import datetime, timezone
 from hashlib import sha384
+from pathlib import Path
+from typing import List
 
-CONFIG_FILE = "config.jsonc"
-SESSIONS_FILE = "sessions.json"
-EXPORTS_FILE = "exports.sh"
+CONFIG_FILE = "~/.awsenv/config.jsonc"
+SESSIONS_FILE = "~/.awsenv/sessions.json"
 
 def load_json_with_comments(json_file):
     output_lines = []
@@ -105,7 +106,7 @@ def fetch_temporary_credentials(user, role, session_name, sessions_json):
     
     return temporary_credentials
 
-def get_temporary_credentials(user=None, role=None, config_file=CONFIG_FILE, sessions_file=SESSIONS_FILE, exports_file=EXPORTS_FILE):
+def get_temporary_credentials(user=None, role=None, config_file=CONFIG_FILE, sessions_file=SESSIONS_FILE):
     config = load_json_with_comments(config_file)
 
     if not user:
@@ -135,9 +136,8 @@ def get_temporary_credentials(user=None, role=None, config_file=CONFIG_FILE, ses
 
     return fetch_temporary_credentials(user, role, session_name, sessions_file)
 
-def export_to_env_file(output, exports_shell):
-    with open(exports_shell, "wt") as f:
-        f.write("\n".join([f"export {k}=\"{v}\"" for k, v in output.items()]))
+def print_to_stdout(output):
+    print("\n".join([f"export {k}=\"{v}\"" for k, v in output.items()]))
 
 def encode_dict_as_base64(dict_to_encode):
     raw_string = json.dumps(dict_to_encode, default=str)
@@ -154,8 +154,7 @@ def get_boto_session(
         account=None, 
         duration=None, 
         config_file=CONFIG_FILE, 
-        sessions_file=SESSIONS_FILE, 
-        exports_file=None):
+        sessions_file=SESSIONS_FILE):
 
     credentials = get_credentials(
         shortcut=shortcut,
@@ -165,7 +164,7 @@ def get_boto_session(
         duration=duration,
         config_file=config_file,
         sessions_file=sessions_file,
-        exports_file=exports_file
+        print_credentials=False
     )
 
     return boto3.session.Session(
@@ -175,6 +174,14 @@ def get_boto_session(
         region_name=credentials["AWS_DEFAULT_REGION"]
     )
 
+def expand_paths(*paths: List[str]) -> List[str]:
+    expanded_paths = []
+    
+    for path in paths:
+        expanded_paths.append(
+            str(Path(path).expanduser()) if path else None)
+        
+    return expanded_paths
 
 def get_credentials(
         shortcut=None, 
@@ -184,9 +191,11 @@ def get_credentials(
         duration=None, 
         config_file=CONFIG_FILE, 
         sessions_file=SESSIONS_FILE, 
-        exports_file=None):
+        print_credentials=False):
     
     clear_aws_env_vars()
+
+    config_file, sessions_file = expand_paths(config_file, sessions_file) # pylint: disable=unbalanced-tuple-unpacking
 
     config = load_json_with_comments(config_file)
     output = {}
@@ -246,8 +255,7 @@ def get_credentials(
                 user=desired_user,
                 role=desired_role, 
                 config_file=config_file,
-                sessions_file=sessions_file,
-                exports_file=exports_file
+                sessions_file=sessions_file
             )
         )
 
@@ -265,8 +273,8 @@ def get_credentials(
 
         output["AWS_TEMPORARY_CREDENTIALS_BASE64"] = encode_dict_as_base64(dict_to_encode)
 
-    if exports_file:
-        export_to_env_file(output, exports_file)
+    if print_credentials:
+        print_to_stdout(output)
 
     return output
 
@@ -287,7 +295,7 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--duration", default=None, type=int)
     parser.add_argument("-c", "--config", default=CONFIG_FILE, dest="config_file")
     parser.add_argument("-s", "--sessions", default=SESSIONS_FILE, dest="sessions_file")
-    parser.add_argument("-e", "--exports", default=EXPORTS_FILE, dest="exports_file")
+    parser.add_argument("-q", "--quiet", action="store_true", help="Suppresses printing credentials")
 
     args = parser.parse_args(sys.argv[1:])
 
@@ -299,7 +307,7 @@ if __name__ == "__main__":
         duration=args.duration,
         config_file=args.config_file,
         sessions_file=args.sessions_file,
-        exports_file=args.exports_file
+        print_credentials=(not args.quiet)
     )
 
 
