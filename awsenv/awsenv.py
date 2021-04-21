@@ -1,6 +1,5 @@
 import sys
 import argparse
-import boto3
 import json
 import os
 import base64
@@ -8,6 +7,8 @@ from datetime import datetime, timezone
 from hashlib import sha384
 from pathlib import Path
 from typing import List
+
+import boto3
 
 CONFIG_FILE = "~/.awsenv/config.jsonc"
 SESSIONS_FILE = "~/.awsenv/sessions.json"
@@ -277,38 +278,6 @@ def get_credentials(
         print_to_stdout(output)
 
     return output
-
-
-if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser()
-
-    # order of prcedence:
-    # - config defaults 
-    # - config shortcuts
-    # - command line arguments
-
-    parser.add_argument("shortcut", nargs="?")
-    parser.add_argument("-r", "--role", default=None, help="The role to assume. If no role should be assumed, indicate '.' (a dot).")
-    parser.add_argument("-u", "--user", default=None)
-    parser.add_argument("-a", "--account", default=None)
-    parser.add_argument("-d", "--duration", default=None, type=int)
-    parser.add_argument("-c", "--config", default=CONFIG_FILE, dest="config_file")
-    parser.add_argument("-s", "--sessions", default=SESSIONS_FILE, dest="sessions_file")
-    parser.add_argument("-q", "--quiet", action="store_true", help="Suppresses printing credentials")
-
-    args = parser.parse_args(sys.argv[1:])
-
-    get_credentials(
-        shortcut=args.shortcut,
-        role=args.role,
-        user=args.user,
-        account=args.account,
-        duration=args.duration,
-        config_file=args.config_file,
-        sessions_file=args.sessions_file,
-        print_credentials=(not args.quiet)
-    )
 
 
 
