@@ -1,14 +1,13 @@
 
-# Setup
+# Usage of awsenv
 
-1. Install boto3 to your base env
+1. Install `boto3` to your base env
 
 2. Add the following awsenv function to your shell resource config (e. g. .zshrc or .oh-my-zsh/custom/awsenv.zsh)
 
 ```sh
 awsenv(){
-  path_to_awsenv_py="$HOME/code/awsenv/awsenv.py"
-  eval $(python $path_to_awsenv_py $@)
+  eval $(awsenv-cli $@)
 }
 ```
 
@@ -37,7 +36,7 @@ awsenv(){
         "<some-shortcut-1>": {
             "user": "<your-name>",
             "role": "<some-role-name>",
-            "account": "617095144398",
+            "account": "<some-account-id>",
             "duration": 43200
         },
         "<some-shortcut-2>": {
@@ -49,3 +48,5 @@ awsenv(){
     }
 }
 ```
+
+# Development of awsenv
